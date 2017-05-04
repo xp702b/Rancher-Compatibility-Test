@@ -1,0 +1,17 @@
+audit-libs-python-2.4.1-5.el7.x86_64.rpm
+checkpolicy-2.1.12-6.el7.x86_64.rpm
+libcgroup-0.41-8.el7.x86_64.rpm
+libseccomp-2.2.1-1.el7.x86_64.rpm
+libtool-ltdl-2.4.2-20.el7.x86_64.rpm
+python-IPy-0.75-6.el7.noarch.rpm
+setools-libs-3.3.8-1.1.el7.x86_64.rpm
+policycoreutils-2.5-11.el7_3.x86_64.rpm
+libsemanage-2.5-5.1.el7_3.x86_64.rpm
+selinux-policy-3.13.1-102.el7_3.16.noarch.rpm
+selinux-policy-targeted-3.13.1-102.el7_3.16.noarch.rpm
+libsemanage-python-2.5-5.1.el7_3.x86_64.rpm
+libtool-ltdl-2.4.2-20.el7.x86_64.rpm
+libsemanage-python-2.5-5.1.el7_3.x86_64.rpm
+policycoreutils-python-2.5-11.el7_3.x86_64.rpm
+docker-engine-selinux-1.12.6-1.el7.centos.noarch.rpm
+docker-engine-1.12.6-1.el7.centos.x86_64.rpm
