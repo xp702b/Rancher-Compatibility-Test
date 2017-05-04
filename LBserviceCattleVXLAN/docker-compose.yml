@@ -1,0 +1,16 @@
+version: '2'
+services:
+  web:
+    image: prakhar1989/static-site
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.glb: 'true'
+      io.rancher.scheduler.global: 'true'
+  lb:
+    image: rancher/none
+    labels:
+      io.rancher.glb: 'true'
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.glb.http: 'true'
+      io.rancher.container.create_agent: 'true'

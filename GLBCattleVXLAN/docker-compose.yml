@@ -1,0 +1,18 @@
+version: '2'
+services:
+  glb:
+    image: rancher/lb-service-haproxy:v0.7.1
+    tty: true
+    ports:
+    - 8082:8082/tcp
+    command:
+    - lb-controller
+    - --controller
+    - rancherglb
+    - --provider
+    - haproxy
+    labels:
+      io.rancher.container.agent.role: system
+      io.rancher.container.create_agent: 'true'
+      io.rancher.container.pull_image: always
+      io.rancher.service.selector.link: io.rancher.glb=true

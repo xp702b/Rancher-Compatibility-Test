@@ -1,0 +1,13 @@
+version: '2'
+services:
+  mysql:
+    image: mysql/mysql-server
+    stdin_open: true
+    tty: true
+    ports:
+    - 3306:3306
+    environment:
+    - MYSQL_ROOT_PASSWORD=123456
+    labels:
+      io.rancher.glb: 'true'
+      io.rancher.scheduler.global: 'true'

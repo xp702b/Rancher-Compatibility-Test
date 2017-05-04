@@ -1,0 +1,14 @@
+version: '2'
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    stdin_open: true
+    tty: true
+    ports:
+    - 8081:15672
+    environment:
+    - RABBITMQ_NODENAME=rabbit
+    hostname: rabbit1
+    labels:
+      io.rancher.glb: 'true'
+      io.rancher.scheduler.global: 'true'

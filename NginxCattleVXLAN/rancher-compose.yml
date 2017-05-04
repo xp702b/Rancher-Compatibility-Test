@@ -1,0 +1,4 @@
+version: '2'
+services:
+  nginx:
+    start_on_create: true

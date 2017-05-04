@@ -1,0 +1,11 @@
+version: '2'
+services:
+  nginx:
+    image: nginx:1.9
+    stdin_open: true
+    tty: true
+    ports:
+    - 9000:80
+    labels:
+      io.rancher.glb: 'true'
+      io.rancher.scheduler.global: 'true'

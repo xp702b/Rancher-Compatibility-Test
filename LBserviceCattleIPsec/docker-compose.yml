@@ -1,0 +1,16 @@
+version: '2'
+services:
+  web:
+    image: prakhar1989/static-site
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.glb: 'true'
+      io.rancher.scheduler.global: 'true'
+  lb:
+    image: rancher/lb-service-haproxy:v0.6.2
+    ports:
+    - 8083:8083/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.container.create_agent: 'true'
