@@ -1,17 +1,18 @@
 #encoding=utf-8
 import telnetlib
+import MySQLdb
 import time,re,os
 
 class RTelnet(object):
-    def __init__(self,host):
+    def __init__(self,host,report_file):
         self.host=host
         self.port="23"
         self.username='agent'
         self.userpasswd='test'
         self.tn = telnetlib.Telnet(self.host, self.port, timeout=10)
+        self.f=report_file
 
     def login(self):
-#        print "----login begin"
         self.tn=telnetlib.Telnet(self.host,self.port,timeout=10)
         self.tn.set_debuglevel(2)
         self.tn.read_until('login:')
@@ -19,7 +20,6 @@ class RTelnet(object):
         self.tn.read_until('Password:')
         self.tn.write(self.userpasswd+'\n')
         self.tn.read_until('$')
-#        print "----login sucess"
 
     def change_root(self):
         self.tn.write("su" + '\n')
@@ -132,6 +132,81 @@ class RTelnet(object):
         self.tn.write("systemctl restart docker"+'\n')
         time.sleep(20)
         f.close()
+
+    def install_mysql(self,fire_dir='CentOS7.2_docker1.12'):
+        print >> self.f,"--Check mysql:"
+        try:
+            db=MySQLdb.connect(self.host,"cattle","cattle","cattle")
+            print >> self.f,"\tmysql has been already installed"
+            print "--install mysql is done"
+        except:
+            local_dir = os.path.join(os.getcwd(), fire_dir)
+            from SftpTest import Paramiko_SFTP
+            Upload_files = Paramiko_SFTP(self.host)
+            Upload_files.put_file(local_dir+"\\mysql-community-release-el7-5.noarch.rpm",'/tmp/mysql-community-release-el7-5.noarch.rpm')
+            time.sleep(10)
+            self.tn.send_cmd('cd /tmp/'+'\n')
+            self.tn.send_cmd('rpm -ivh mysql*.rpm'+'\n')
+            time.sleep(10)
+            self.tn.send_cmd("yum -y install mysql-community-server"+'\n')
+            time.sleep(60)
+            self.tn.send_cmd('service mysqld restart')
+            time.sleep(20)
+            self.tn.send_cmd('systemctl enable mysqld')
+            time.sleep(2)
+            self.tn.send_cmd('systemctl daemon-reload')
+            time.sleep(2)
+            db = MySQLdb.connect(self.host)
+            cursor = db.cursor()
+            cursor.execute("CREATE DATABASE IF NOT EXISTS cattle COLLATE = 'utf8_general_ci' CHARACTER SET = 'utf8';")
+            cursor.execute("GRANT ALL ON cattle.* TO 'cattle'@'%' IDENTIFIED BY 'cattle';")
+            cursor.execute("GRANT ALL ON cattle.* TO 'cattle'@'localhost' IDENTIFIED BY 'cattle';")
+            db.close()
+            print >> self.f, "--install mysql is done"
+            print "--install mysql is done"
+
+    def centos_pre_install_docker(self,fire_dir):
+        print "---install docker on "+self.host
+        local_dir =os.path.join(os.getcwd(),fire_dir)
+        from SftpTest import Paramiko_SFTP
+        Upload_files=Paramiko_SFTP(self.host)
+        Upload_files.put_dir_files(local_dir,'/tmp/')
+        self.install_docker(fire_dir,fire_dir+'.txt')
+
+    def check_install_docker(self,fire_dir):
+        self.change_root()
+        sysversion=self.get_linux_version()
+        version=self.get_docker_version()
+        if version==0:
+            print >> self.f,"--need to install docker"
+            print "--need to install docker"
+            if sysversion.split(' ')[0].lower()=="centos":
+                self.centos_pre_install_docker(fire_dir)
+        else:
+            print >> self.f,"--Docker version:"+'\n\t'+version
+            print "--OS version:"+'\t'+sysversion+"\n--Docker version:"+'\t'+version
+
+    def install_rancher(self,version="rancher/server:v1.5.5"):
+        id=self.send_cmd("docker ps \n")
+        n=0
+        while (id !=""):
+            try:
+                if re.search(r'(rancher)',id).group(1):
+                    break
+            except:
+                cmd="docker run -d --restart=always -p 8080:8080 "+version+" --db-host "+self.host+" --db-port 3306 --db-user cattle --db-pass cattle --db-name cattle"
+                print '\t' + self.host + '\t'+cmd
+                self.send_cmd(cmd + '\n')
+                time.sleep(10)
+                id = self.send_cmd("docker ps \n")
+                if (n == 20):
+                    break
+                n = n + 1
+                time.sleep(200)
+        id_list=id.split('\n')
+        id_list.pop()
+        id=id_list[-1]
+        print "\tRancher Server is up:\t" + id
 
     def send_cmd(self,cmd):
         self.tn.write(cmd)

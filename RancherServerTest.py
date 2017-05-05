@@ -5,7 +5,7 @@ from selenium.webdriver.common.keys import Keys
 import time,re,random,os,SendKeys,sys
 
 class RancherServer(object):
-    def __init__(self,rancherserver_url,agents_outer_ip,agents_inner_ip):
+    def __init__(self,rancherserver_url,agents_outer_ip,agents_inner_ip,report_file):
         self.rancherserver_ip = rancherserver_url
         self.rancherserver_username = "bin"
         self.rancherserver_passwd = "1234"
@@ -15,11 +15,12 @@ class RancherServer(object):
         self.agent_userpasswd = "test"
         self.root_passwd = "XLuo+agi198244"
         self.glb_env_name="admin-cattle-vxlan"
+        self.f=report_file
 
     def login(self):
 #        self.dr = webdriver.Firefox()
         self.dr=webdriver.Chrome()
-        print "-Rancher Server is open! "+self.rancherserver_ip
+        print >> self.f,"\n-Rancher Server is open! "+self.rancherserver_ip
         self.dr.get(self.rancherserver_ip)
         self.dr.implicitly_wait(5)
         self.dr.find_element_by_xpath("//button")
@@ -33,7 +34,7 @@ class RancherServer(object):
             for cookie in self.dr.get_cookies():
                 self.dr.add_cookie({'name': cookie['name'], 'value': cookie['value']})
             time.sleep(1)
-            print "--Rancher Server Login is successful"
+            print >> self.f,"--Rancher Server Login is successful"
             return
         except:
             try:
@@ -134,12 +135,13 @@ class RancherServer(object):
         return name
 
     def glb_config(self,env_id,user_env_id):
+        print >> self.f,"---Set GLB config"
         print "---GLB config"
         self.dr.get(self.rancherserver_ip + "/v2-beta/accounts/"+env_id)
         time.sleep(2)
         self.dr.find_element_by_xpath("//div[@id='operations']/button[3]").click()
         time.sleep(1)
-        print "\tset allowSystemRole true"
+        print >> self.f, "\tset allowSystemRole true"
         button_value =self.dr.find_element_by_xpath("//div[@id='request-input']/table/tbody/tr[20]/td[3]/input").is_selected()
         if button_value is not True:
             self.dr.find_element_by_xpath("//div[@id='request-input']/table/tbody/tr[20]/td[3]/input").click()
@@ -147,12 +149,13 @@ class RancherServer(object):
         time.sleep(1)
         expr="//div[@id='request-input']/table/tbody/tr[25]/td[3]/div[@class='dualValue']/select/option[@value='"+user_env_id+"']"
         self.dr.find_element_by_xpath(expr).click()
-        print "\tset projectLinks"
+        print >> self.f, "\tset projectLinks"
         self.dr.find_element_by_xpath("//body/div[4]/div/div/div[3]/button[1]").click()
         time.sleep(1)
         self.dr.find_element_by_xpath("//body/div[4]/div/div/div[3]/button[1]").click()
         time.sleep(1)
         self.dr.find_element_by_xpath("//body/div[4]/div/div/div[3]/button[2]").click()
+        print >> self.f, "---Set GLB config is done"
         print "---GLB config done"
 
 
@@ -250,7 +253,7 @@ class RancherServer(object):
             n=n+1
         return final_data
 
-    def add_host(self,env_id,host_ip,username,userpasswd):
+    def add_host(self,env_id,host_ip):
         url = self.rancherserver_ip + "/env/" + str(env_id) + "/infra/hosts/add?driver=custom"
         self.dr.get(url)
         self.dr.implicitly_wait(25)
@@ -260,7 +263,7 @@ class RancherServer(object):
         print "\tadd host:"+host_ip+"\tcommand:"+text
 
         from TelnetTest import RTelnet
-        telnet_host=RTelnet(host_ip,username,userpasswd)
+        telnet_host=RTelnet(host_ip,self.f)
         telnet_host.login()
         telnet_host.change_root()
         telnet_host.send_cmd(str(text)+'\n')
@@ -296,22 +299,41 @@ class RancherServer(object):
             all_host_ip.append(ip.text)
         return all_host_ip
 
-    def deactivate_host(self,ENV_name,Host_ip):
-        id = self.get_env_id(ENV_name)
-        time.sleep(2)
-        print "------deactivate " + Host_ip + "------"
-        url = self.RS_ip + "/env/" + str(id) + "/infra/hosts"
+    def deactivate_host(self,env_id,host_ip):
+        url = self.rancherserver_ip + "/env/" + env_id + "/infra/hosts"
         self.dr.get(url)
-        self.dr.implicitly_wait(25)
+        self.dr.implicitly_wait(10)
         self.dr.find_element_by_class_name("clearfix")
         time.sleep(1)
-        self.dr.find_element_by_xpath("//div[@class='pull-right']/div"
-                                      "/button[@data-toggle='dropdown']").click()
-        actionItem=self.dr.find_element_by_xpath("//div[@id='resource-actions-parent']"
-                                            "/ul[@id='resource-actions']/li/a[@class='ember-view']")
-        if actionItem.text == "Deactivate":
-            actionItem.click()
-            print "-------Deactivate"+Host_ip+"done"
+        try:
+            actionItems = self.dr.find_elements_by_xpath("//section[@class='ember-view pods clearfix']/div[@class='pod-column']")
+            if type(host_ip) is str:
+                for n in range(1,len(actionItems)+1):
+                    text_repr="//section[@class='ember-view pods clearfix']/div["+str(n)+"]/div[1]/div[3]/div[1]/div[1]"
+                    if self.dr.find_element_by_xpath(text_repr).text == host_ip:
+                        print "\tdeactivate:" + host_ip
+                        repr="//section[@class='ember-view pods clearfix']/div["+str(n)+"]/div[1]/div[1]/div[1]/span"
+                        if self.dr.find_element_by_xpath(repr).text != "ACTIVE":
+                            continue
+                        click_repr="//section[@class='ember-view pods clearfix']/div["+str(n)+"]/div/div[1]/div[2]/div[1]/button[2]"
+                        self.dr.find_element_by_xpath(click_repr).click()
+                        actionItem = self.dr.find_element_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
+                        if actionItem.text == "Deactivate":
+                            actionItem.click()
+            if type(host_ip) is  list:
+                for n in range(1,len(actionItems)+1):
+                    for ip in host_ip:
+                        text_repr = "//section[@class='ember-view pods clearfix']/div[" + str(n) + "]/div[1]/div[3]/div[1]/div[1]"
+                        if self.dr.find_element_by_xpath(text_repr).text == ip:
+                            print "\tdeactivate:" + ip
+                            click_repr = "//section[@class='ember-view pods clearfix']/div[" + str(n) + "]/div/div[1]/div[2]/div[1]/button[2]"
+                            self.dr.find_element_by_xpath(click_repr).click()
+                            actionItem = self.dr.find_element_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
+                            if actionItem.text == "Deactivate":
+                                actionItem.click()
+
+        except:
+            return
 
     def activate_host(self,ENV_name,Host_ip):
         print "------activate "+Host_ip+"------"
@@ -330,30 +352,67 @@ class RancherServer(object):
             actionItem.click()
             print "-------activate "+Host_ip+" done"
 
-    def delete_host(self,ENV_name,Host_ip):
-        id = self.get_env_id(ENV_name)
-        time.sleep(1)
-        print "------delete " + Host_ip + " ------"
-        url = self.RS_ip + "/env/" + str(id) + "/infra/hosts"
+    def delete_host(self,env_id,host_ip):
+        url = self.rancherserver_ip + "/env/" + env_id + "/infra/hosts"
         self.dr.get(url)
-        self.dr.implicitly_wait(25)
+        self.dr.implicitly_wait(10)
         self.dr.find_element_by_class_name("clearfix")
         time.sleep(1)
-        host_state=self.get_host_state(ENV_name,Host_ip)
-        if host_state == "ACTIVE":
-            self.deactivate_host(ENV_name,Host_ip)
-        self.dr.find_element_by_xpath("//div[@class='pull-right']/div"
-                                      "/button[@data-toggle='dropdown']").click()
-        actionItems=self.dr.find_elements_by_xpath("//div[@id='resource-actions-parent']"
-                                            "/ul[@id='resource-actions']/li/a[@class='ember-view']")
-        for i in actionItems:
-            print i.text
-            if i.text == "Delete":
-                i.click()
-                print "-------delete " + Host_ip + " is done"
+        if re.search(r'(text-center text-muted)',self.dr.page_source):
+            return False
+        actionItems = self.dr.find_elements_by_xpath("//section[@class='ember-view pods clearfix']/div[@class='pod-column']/div[@class='ember-view pod host']")
+        for n in range(1,len(actionItems)+1):
+            text_repr = "//section[@class='ember-view pods clearfix']/div[" + str(n) + "]/div[1]/div[3]/div[1]/div[1]"
+            if self.dr.find_element_by_xpath(text_repr).text == host_ip:
+                print "\tdelete:" + host_ip
+                repr = "//section[@class='ember-view pods clearfix']/div[" + str(n) + "]/div[1]/div[1]/div[1]/span"
+                click_repr = "//section[@class='ember-view pods clearfix']/div[" + str(n) + "]/div/div[1]/div[2]/div[1]/button[2]"
+                self.dr.find_element_by_xpath(click_repr).click()
+                actionItem = self.dr.find_element_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
+                if actionItem.text == "Deactivate":
+                    actionItem.click()
+                    time.sleep(2)
+                self.dr.find_element_by_xpath("//div[@class='pull-right']/div/button[@data-toggle='dropdown']").click()
+                time.sleep(2)
+                actionItems = self.dr.find_elements_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
+                for i in actionItems:
+                    if i.text == "Delete":
+                        i.click()
+                        time.sleep(1)
+                        self.dr.find_element_by_class_name("btn-danger").click()
+                        print "\tdelete " + host_ip + " is done"
+                        break
+                time.sleep(2)
+
+    def delete_all_host(self, env_id):
+        while True:
+            url = self.rancherserver_ip + "/env/" + env_id + "/infra/hosts"
+            self.dr.get(url)
+            self.dr.implicitly_wait(10)
+            self.dr.find_element_by_class_name("clearfix")
+            time.sleep(1)
+            if re.search(r'(text-center text-muted)', self.dr.page_source):
                 break
-        self.dr.find_element_by_class_name("btn-danger").click()
-        print self.dr.page_source
+            text_repr = "//section[@class='ember-view pods clearfix']/div[1]/div[1]/div[3]/div[1]/div[1]"
+            print "\tdelete:" + self.dr.find_element_by_xpath(text_repr).text
+            click_repr = "//section[@class='ember-view pods clearfix']/div[1]/div/div[1]/div[2]/div[1]/button[2]"
+            self.dr.find_element_by_xpath(click_repr).click()
+            actionItem = self.dr.find_element_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
+            if actionItem.text == "Deactivate":
+                actionItem.click()
+                time.sleep(2)
+            self.dr.find_element_by_xpath("//div[@class='pull-right']/div/button[@data-toggle='dropdown']").click()
+            time.sleep(2)
+            actionItems = self.dr.find_elements_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
+            for i in actionItems:
+                if i.text == "Delete":
+                    i.click()
+                    time.sleep(1)
+                    self.dr.find_element_by_class_name("btn-danger").click()
+                    break
+            time.sleep(5)
+
+
 
     def get_host_state(self,env_id):
 #        print "------get " + Host_ip + " state------"
@@ -393,6 +452,7 @@ class RancherServer(object):
         return result
 
     def set_settings_host(self,url):
+        print >> self.f,"---Set Host Registration URL"
         print "---Set Host Registration URL"
         self.dr.get(self.rancherserver_ip + "/admin/settings")
         self.dr.implicitly_wait(25)
@@ -405,7 +465,9 @@ class RancherServer(object):
             self.dr.find_element_by_xpath("//div[@class='r-mt10']/input").send_keys(url)
             self.dr.find_element_by_xpath("//main[@class='clearfix']/section[2]/div/div[@class='ember-view footer-actions']/button").click()
         else:
+            print >> self.f,"\t"+text
             print "\t"+text
+        print >> self.f,"---Set Host Registration URL done"
         print "---Set Host Registration URL done"
 
     def get_settings_host(self):
@@ -416,6 +478,7 @@ class RancherServer(object):
         return self.dr.find_element_by_xpath("//div[@class='r-mt10']/input").get_attribute('value')
 
     def set_settings_catalog(self):
+        print >> self.f,"---Set Catalog"
         print "---Set Catalog"
         self.dr.get(self.rancherserver_ip + "/admin/settings")
         self.dr.implicitly_wait(25)
@@ -425,6 +488,7 @@ class RancherServer(object):
             text_name=self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[1]/input").get_attribute('value')
             text_url=self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[3]/input").get_attribute('value')
             text_branch=self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[5]/input").get_attribute('value')
+            print >> self.f,"\t"+text_name+"\t"+text_url+"\t"+text_branch
             print "\t"+text_name+"\t"+text_url+"\t"+text_branch
         except:
             text_name=" "
@@ -438,16 +502,18 @@ class RancherServer(object):
             self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[5]/input").send_keys("hnatest2")
             self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/div[@class='ember-view footer-actions']/button").click()
             time.sleep(5)
+            print >> self.f,"\t"+"myvxlan\t"+"https://github.com/leodotcloud/rancher-catalog.git\t"+"hnatest2"
             print "\t"+"myvxlan\t"+"https://github.com/leodotcloud/rancher-catalog.git\t"+"hnatest2"
+        print >> self.f,"---Set Catalog done"
         print "---Set Catalog done"
 
     def container_ping_random(self):
-        num = random.randint(0, len(self.agents_outer_ip) - 1)
-        num2 = random.randint(0, len(self.agents_outer_ip) - 1)
+        num = random.randint(0, len(self.agents_outer_ip) - 2)
+        num2 = random.randint(0, len(self.agents_outer_ip) - 2)
         while (num2 == num):
-            num2 = random.randint(0, len(self.agents_outer_ip) - 1)
+            num2 = random.randint(0, len(self.agents_outer_ip) - 2)
         from TelnetTest import RTelnet
-        dst_telnet = RTelnet(self.agents_outer_ip[num2])
+        dst_telnet = RTelnet(self.agents_outer_ip[num2],self.f)
         dst_telnet.login()
         dst_telnet.change_root()
         dst_all_container_id = dst_telnet.get_all_container_id()
@@ -474,7 +540,7 @@ class RancherServer(object):
         dst_container_ip = dst_telnet.get_container_ip(dst_container_id)
         dst_telnet.close()
 
-        telnetH = RTelnet(self.agents_outer_ip[num])
+        telnetH = RTelnet(self.agents_outer_ip[num],self.f)
         telnetH.login()
         telnetH.change_root()
         all_container_id = telnetH.get_all_container_id()
@@ -494,7 +560,7 @@ class RancherServer(object):
         container_id=all_container_id.values()[n]
         print telnetH.container_ping(container_id, dst_container_ip)
         telnetH.close()
-        print '\t'+all_container_id.keys()[n]+"\tping\t"+dst_all_container_id.keys()[temp]+":"+dst_container_ip
+        print >> self.f,'\t'+all_container_id.keys()[n]+"\tping\t"+dst_all_container_id.keys()[temp]+":"+dst_container_ip
 
     def container_ping(self,container_id1,container_id2):
         pass
@@ -510,7 +576,7 @@ class RancherServer(object):
         url=actionItem.get_attribute("href")
         from TelnetTest import RTelnet
         server_ip=re.search(r'(\d*\.\d*\.\d*\.\d*)',self.rancherserver_ip).group(1)
-        dst_telnet = RTelnet(server_ip)
+        dst_telnet = RTelnet(server_ip,self.f)
         dst_telnet.login()
         dst_telnet.change_root()
         glb_url="curl -i "+url+" -H 'host:abc.com'"
@@ -526,9 +592,10 @@ class RancherServer(object):
         self.glb_haproxy_config_check(glb_env_id,host_ip)
 
     def glb_haproxy_config_check(self,env_id,host_ip):
+        print >> self.f,"----GLB haproxy config check on host:"+host_ip
         print "----GLB haproxy config check on host:"+host_ip
         from TelnetTest import RTelnet
-        dst_telnet = RTelnet(host_ip)
+        dst_telnet = RTelnet(host_ip,self.f)
         dst_telnet.login()
         dst_telnet.change_root()
         all_container_id = dst_telnet.get_all_container_id()
@@ -540,25 +607,28 @@ class RancherServer(object):
             except:
                 pass
         config_data =dst_telnet.get_haproxy_config(container_id)
+        print >> self.f,config_data
         print config_data
         dst_telnet.close()
 
 if __name__ == "__main__":
-    rancher_server_ip = ['120.76.143.97', '10.116.27.222']
-    agents_outer_ip = ["120.24.159.214", "120.25.254.32", "120.25.254.221", "120.24.228.201"]
-    agents_inner_ip = ["10.169.210.12", "10.116.97.118", "10.116.97.222", "10.170.47.15"]
-    rancher_server_username = 'bin'
-    rancher_server_passwd = '1234'
-    agent_username = "agent"
-    agent_userpasswd = "test"
-    root_passwd = "XLuo+agi198244"
+    rancher_server_ip = ['112.74.197.212', '10.45.166.186']
+    agents_outer_ip = ["112.74.25.81", "120.25.65.45", "120.25.159.42", "120.76.145.193"]
+    agents_inner_ip = ["10.170.47.124", "10.24.146.184", "10.116.141.136", "10.170.18.147"]
+
     rancher_version = "rancher/server:v1.6.0-rc3"
     engine = "Cattle"
     networking = "VXLAN"
     service_name = ["LBservice" + engine + networking, "Mysql" + engine + networking]
 
-    testNow=RancherServer('http://'+rancher_server_ip[0]+":8080",agents_outer_ip,agents_inner_ip)
-    testNow.container_ping_random()
+    NewTest = RancherServer('http://' + rancher_server_ip[0] + ":8080", agents_outer_ip, agents_inner_ip)
+    NewTest.login()
+    all_env = NewTest.get_all_env()
+
+    print "---Deactivate host"
+    for id in all_env.values():
+        NewTest.delete_all_host(id)
+
 
 
 
