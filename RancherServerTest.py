@@ -100,7 +100,7 @@ class RancherServer(object):
     def set_env_template(self):
         pass
 
-    def add_env_template(self,name,engine_type='Cattle',networking_type='IPsec',disable_type='1'):
+    def add_env_template(self,name,engine_type='Cattle',networking_type='IPsec'):
         type=networking_type
         self.dr.get(self.rancherserver_ip+"/settings/env/add-template")
         self.dr.implicitly_wait(15)
@@ -111,19 +111,24 @@ class RancherServer(object):
         element="//section[@class='well r-mb0']/div[@class='row']/div/div/a[@title='"+engine_type+"']"
         self.dr.find_element_by_xpath(element).click()
         time.sleep(1)
+        js = "var q=document.documentElement.scrollTop=500"
+        self.dr.execute_script(js)
         element=self.dr.find_element_by_xpath('//section/h4[text()="Networking"]/..')
-        if disable_type != "1":
-            disable='//div[@class="itemwrap"]/h5[text()="'+disable_type+'"]/../../div[@class="footer"]/button[@class="btn btn-danger"]'
-            try:
-               element.find_element_by_xpath(disable).click()
-            except:
-                pass
+        try:
+            for i in range(1,len(element.find_elements_by_xpath("//div[@class='ember-view catalog-box']"))+1):
+                dis_expr="//section/div/div["+str(i)+"]/div[@class='footer']/button[2]"
+                element.find_element_by_xpath(dis_expr).click()
+        except:
+            pass
+        print "here1"
         expr='//div[@class="itemwrap"]/h5[text()="'+type+'"]/../../div[@class="footer"]/button[@class="btn btn-primary"]'
+        print expr
         element.find_element_by_xpath(expr).click()
         time.sleep(1)
         js = "var q=document.documentElement.scrollTop=500"
         self.dr.execute_script(js)
         time.sleep(1)
+        print "here2"
         self.dr.find_element_by_xpath(
             "//body[@class='no-touch ember-application theme-ui-light']/div[@class='ember-view']")
         self.dr.find_element_by_xpath("//div[@class='ember-view lacsso modal-overlay modal-open']/div"
@@ -186,7 +191,6 @@ class RancherServer(object):
         SendKeys.SendKeys("{ENTER}")
         time.sleep(1)
         self.dr.find_element_by_xpath("//div[@class='ember-view footer-actions']/button[@class='btn btn-primary']").click()
-        print "\t"+Stack_name
 
     def get_stack_id(self,env_id,stack_name):
         url=self.rancherserver_ip + "/v2-beta/projects/"+str(env_id)+"/stacks/"
@@ -260,6 +264,7 @@ class RancherServer(object):
         self.dr.find_element_by_class_name("clearfix")
         time.sleep(1)
         text=self.dr.find_element_by_xpath("//div[@class='copy-pre']/pre").text
+        print >> self.f,"\tadd host:"+host_ip+"\tcommand:"+text
         print "\tadd host:"+host_ip+"\tcommand:"+text
 
         from TelnetTest import RTelnet
@@ -386,31 +391,35 @@ class RancherServer(object):
 
     def delete_all_host(self, env_id):
         while True:
-            url = self.rancherserver_ip + "/env/" + env_id + "/infra/hosts"
-            self.dr.get(url)
-            self.dr.implicitly_wait(10)
-            self.dr.find_element_by_class_name("clearfix")
-            time.sleep(1)
-            if re.search(r'(text-center text-muted)', self.dr.page_source):
-                break
-            text_repr = "//section[@class='ember-view pods clearfix']/div[1]/div[1]/div[3]/div[1]/div[1]"
-            print "\tdelete:" + self.dr.find_element_by_xpath(text_repr).text
-            click_repr = "//section[@class='ember-view pods clearfix']/div[1]/div/div[1]/div[2]/div[1]/button[2]"
-            self.dr.find_element_by_xpath(click_repr).click()
-            actionItem = self.dr.find_element_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
-            if actionItem.text == "Deactivate":
-                actionItem.click()
-                time.sleep(2)
-            self.dr.find_element_by_xpath("//div[@class='pull-right']/div/button[@data-toggle='dropdown']").click()
-            time.sleep(2)
-            actionItems = self.dr.find_elements_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
-            for i in actionItems:
-                if i.text == "Delete":
-                    i.click()
-                    time.sleep(1)
-                    self.dr.find_element_by_class_name("btn-danger").click()
+            try:
+                url = self.rancherserver_ip + "/env/" + env_id + "/infra/hosts"
+                self.dr.get(url)
+                self.dr.implicitly_wait(25)
+                self.dr.find_element_by_class_name("clearfix")
+                time.sleep(1)
+                if re.search(r'(text-center text-muted)', self.dr.page_source) or re.search(r'(No hosts)', self.dr.page_source):
                     break
-            time.sleep(5)
+                text_repr = "//section[@class='ember-view pods clearfix']/div[1]/div[1]/div[3]/div[1]/div[1]"
+                print >> self.f,"\tdelete:" + self.dr.find_element_by_xpath(text_repr).text
+                print "\tdelete:" + self.dr.find_element_by_xpath(text_repr).text
+                click_repr = "//section[@class='ember-view pods clearfix']/div[1]/div/div[1]/div[2]/div[1]/button[2]"
+                self.dr.find_element_by_xpath(click_repr).click()
+                actionItem = self.dr.find_element_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
+                if actionItem.text == "Deactivate":
+                    actionItem.click()
+                    time.sleep(5)
+                self.dr.find_element_by_xpath("//div[@class='pull-right']/div/button[@data-toggle='dropdown']").click()
+                time.sleep(2)
+                actionItems = self.dr.find_elements_by_xpath("//div[@id='resource-actions-parent']/ul[@id='resource-actions']/li/a[@class='ember-view']")
+                for i in actionItems:
+                    if i.text == "Delete":
+                        i.click()
+                        time.sleep(1)
+                        self.dr.find_element_by_class_name("btn-danger").click()
+                        break
+                time.sleep(5)
+            except:
+                pass
 
 
 
@@ -467,7 +476,6 @@ class RancherServer(object):
         else:
             print >> self.f,"\t"+text
             print "\t"+text
-        print >> self.f,"---Set Host Registration URL done"
         print "---Set Host Registration URL done"
 
     def get_settings_host(self):
@@ -504,8 +512,7 @@ class RancherServer(object):
             time.sleep(5)
             print >> self.f,"\t"+"myvxlan\t"+"https://github.com/leodotcloud/rancher-catalog.git\t"+"hnatest2"
             print "\t"+"myvxlan\t"+"https://github.com/leodotcloud/rancher-catalog.git\t"+"hnatest2"
-        print >> self.f,"---Set Catalog done"
-        print "---Set Catalog done"
+
 
     def container_ping_random(self):
         num = random.randint(0, len(self.agents_outer_ip) - 2)
@@ -558,7 +565,7 @@ class RancherServer(object):
                 continue
             break
         container_id=all_container_id.values()[n]
-        print telnetH.container_ping(container_id, dst_container_ip)
+        print >> self.f, telnetH.container_ping(container_id, dst_container_ip)
         telnetH.close()
         print >> self.f,'\t'+all_container_id.keys()[n]+"\tping\t"+dst_all_container_id.keys()[temp]+":"+dst_container_ip
 
@@ -583,6 +590,7 @@ class RancherServer(object):
         rep=dst_telnet.send_cmd(str(glb_url)+'\n')
         try:
             re.search(r'(200\s*OK)',rep).group(1)
+            print >> self.f,rep,"\n\tfrom "+server_ip+" curl test is successful! url:"+glb_url
             print rep
             print "\tfrom "+server_ip+" curl test is successful! url:"+glb_url
         except:

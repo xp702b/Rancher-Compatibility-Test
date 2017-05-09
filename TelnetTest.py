@@ -46,8 +46,9 @@ class RTelnet(object):
 
     def get_docker_version(self):
         self.tn.write('docker version' + '\n')
-        time.sleep(1)
+        time.sleep(2)
         data = self.tn.read_very_eager()
+        print data
         if re.search(r'(command not found)',data):
             return 0
         if re.search(r'(Cannot)',data):
@@ -183,7 +184,7 @@ class RTelnet(object):
             if sysversion.split(' ')[0].lower()=="centos":
                 self.centos_pre_install_docker(fire_dir)
         else:
-            print >> self.f,"--Docker version:"+'\n\t'+version
+            print >> self.f,"--Chech Docker:"+'\n\t'+version
             print "--OS version:"+'\t'+sysversion+"\n--Docker version:"+'\t'+version
 
     def install_rancher(self,version="rancher/server:v1.5.5"):
