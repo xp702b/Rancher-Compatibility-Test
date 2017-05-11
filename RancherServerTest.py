@@ -161,6 +161,9 @@ class RancherServer(object):
                     if engine_type != "Kubernetes" and i.find_element_by_xpath('./div[@class="itemwrap"]/span/span').text == "Library":
                         i.find_element_by_xpath("./div[@class='footer']/button").click()
                         if_click=1
+                    if engine_type != "Kubernetes" and i.find_element_by_xpath('./div[@class="itemwrap"]/span/span').text == "Myvxlan":
+                        i.find_element_by_xpath("./div[@class='footer']/button").click()
+                        if_click=1
                     if if_click>0:
                         time.sleep(1)
                         js = "var q=document.documentElement.scrollTop=500"
@@ -197,7 +200,7 @@ class RancherServer(object):
         self.dr.find_element_by_xpath("//body/div[4]/div/div/div[3]/button[1]").click()
         time.sleep(1)
         self.dr.find_element_by_xpath("//body/div[4]/div/div/div[3]/button[2]").click()
-        print >> self.f, "---Set GLB config is done"
+#        print >> self.f, "---Set GLB config is done"
         print "---GLB config done"
 
 
@@ -271,7 +274,7 @@ class RancherServer(object):
 #        print "------getting all stack state------"
         url = self.rancherserver_ip + "/env/" + str(env_id) + "/apps/stacks?which=all"
         self.dr.get(url)
-        self.dr.implicitly_wait(5)
+        self.dr.implicitly_wait(15)
         self.dr.find_element_by_class_name("clearfix")
         time.sleep(1)
         actionItems=self.dr.find_elements_by_xpath("//a[@class='btn btn-link']/i[@class='icon icon-plus']")
@@ -283,13 +286,16 @@ class RancherServer(object):
         final_data={}
         for i in actionItems:
             repx="//main[@class='clearfix']/section[2]/div/div["+str(n)+"]/div[2]/div/div/table/tbody/tr"
+            print >>self.f,'\tstack:'+self.dr.find_element_by_xpath("//main[@class='clearfix']/section[2]/div/div["+str(n)+"]/div[1]/div[3]/h4/a").text
+            print '\t\t'+self.dr.find_element_by_xpath("//main[@class='clearfix']/section[2]/div/div["+str(n)+"]/div[1]/div[3]/h4/a").text
             newitems=self.dr.find_elements_by_xpath(repx)
             num=1
             for m in newitems:
                 new_repx=repx+"["+str(num)+"]"
                 data=self.dr.find_element_by_xpath(new_repx).text
                 final_data[data.split(' ')[1]]=data.split(' ')[0]
-#                print '\t'+data.split(' ')[1]+" : "+data.split(' ')[0]
+                print >>self.f,'\t\t'+data.split(' ')[1]+" : "+data.split(' ')[0]
+                print '\t\t\t'+data.split(' ')[1]+" : "+data.split(' ')[0]
                 num=num+1
             n=n+1
         return final_data
@@ -301,7 +307,7 @@ class RancherServer(object):
         self.dr.find_element_by_class_name("clearfix")
         time.sleep(1)
         text=self.dr.find_element_by_xpath("//div[@class='copy-pre']/pre").text
-        print >> self.f,"\tadd host:"+host_ip+"\tcommand:"+text
+#        print >> self.f,"\tadd host:"+host_ip+"\tcommand:"+text
         print "\tadd host:"+host_ip+"\tcommand:"+text
 
         from TelnetTest import RTelnet
@@ -538,6 +544,7 @@ class RancherServer(object):
                 text_name=self.dr.find_element_by_xpath(expr+"td[1]/input").get_attribute('value')
                 text_url=self.dr.find_element_by_xpath(expr+"td[3]/input").get_attribute('value')
                 text_branch=self.dr.find_element_by_xpath(expr+"td[5]/input").get_attribute('value')
+                print >>self.f,"\t" + text_name + "\t" + text_url + "\t" + text_branch
                 print "\t" + text_name + "\t" + text_url + "\t" + text_branch
                 if text_name == "myvxlan":
                     need_myvxlan="False"
@@ -620,14 +627,15 @@ class RancherServer(object):
                 continue
             break
         container_id=all_container_id.values()[n]
-        print >> self.f, telnetH.container_ping(container_id, dst_container_ip)
+        container_ip=telnetH.get_container_ip(container_id)
+        print >> self.f, '\tFrom host:'+self.agents_inner_ip[num]+":"+ all_container_id.keys()[n]+"/"+container_ip+ "\tping\t" + "host:"+self.agents_inner_ip[num2]+":"+dst_all_container_id.keys()[temp] + "/" + dst_container_ip
+        print >> self.f, '\t'+telnetH.container_ping(container_id, dst_container_ip)
         telnetH.close()
-        print >> self.f,'\t'+all_container_id.keys()[n]+"\tping\t"+dst_all_container_id.keys()[temp]+":"+dst_container_ip
 
     def container_ping(self,container_id1,container_id2):
         pass
 
-    def glb_check(self,glb_env_id,glb_stack_id):
+    def glb_check(self,glb_env_id,glb_stack_id,user_env_id='test'):
         all_stack_id=self.get_stack_all_id(glb_env_id)
         url = self.rancherserver_ip + "/env/" + str(glb_env_id) + "/apps/stacks/"+str(glb_stack_id)+"?which=all"
         self.dr.get(url)
@@ -647,16 +655,15 @@ class RancherServer(object):
         dst_telnet.change_root()
         glb_url="curl -i "+url+" -H 'host:abc.com'"
         rep=dst_telnet.send_cmd(str(glb_url)+'\n')
-        try:
-            re.search(r'(200\s*OK)',rep).group(1)
+        dst_telnet.close()
+        if re.search(r'(200\s*OK)',rep):
             print >> self.f,rep,"\n\tfrom "+server_ip+" curl test is successful! url:"+glb_url
             print rep
             print "\tfrom "+server_ip+" curl test is successful! url:"+glb_url
-        except:
-            print "\tError"
-        dst_telnet.close()
-
-        self.glb_haproxy_config_check(glb_env_id,agent_outer_ip)
+        if user_env_id=='test':
+            self.glb_haproxy_config_check(glb_env_id,agent_outer_ip)
+        else:
+            self.glb_haproxy_config_check(user_env_id,agent_outer_ip)
 
     def glb_haproxy_config_check(self,env_id,host_ip):
         print >> self.f,"----GLB haproxy config check on host:"+host_ip
@@ -679,7 +686,7 @@ class RancherServer(object):
         num=len(self.get_host_state(env_id))
         for i in range(1,num+1):
             print data[0-i]
-        print >> self.f,data
+            print >> self.f,"\t"+data[0-i]
         dst_telnet.close()
 
 if __name__ == "__main__":

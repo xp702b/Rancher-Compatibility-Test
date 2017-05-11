@@ -42,15 +42,19 @@ class RTelnet(object):
         self.tn.write("docker volume rm $(docker volume ls - q)" + '\n')
 
     def get_linux_version(self):
+        version=""
         self.tn.write("cat /proc/version"+'\n')
-        time.sleep(.4)
+        time.sleep(2)
         data=self.tn.read_very_eager()
-        try:
-            if re.search(r'(centos)',data).group(1)=="centos":
-                tmp=re.search(r'Linux version\s*(\d*.\d*.\d*-\d*)',data).group(1)
-                version= "CentOS "+tmp
-        except:
-            version=None
+        if re.search(r'(centos)',data):
+            tmp=re.search(r'Linux version\s*(\d*.\d*.\d*-\d*)',data).group(1)
+            self.tn.write("cat /etc/redhat-release" + '\n')
+            time.sleep(2)
+            v=self.tn.read_very_eager()
+            print v
+            v_data=re.search(r'release (\d*.\d*.\d*)',v).group(1)
+            version= "CentOS "+v_data+" "+tmp
+
         return version
 
 
@@ -111,7 +115,8 @@ class RTelnet(object):
         time.sleep(30)
         data=self.tn.read_very_eager()
         self.tn.write("exit"+'\n')
-        return data
+        new_data=data.split('\n')
+        return new_data[-3]
 
     def get_haproxy_config(self,container_id):
         self.getin_container(container_id)
@@ -148,7 +153,7 @@ class RTelnet(object):
         print >> self.f,"--Check mysql:"
         try:
             db=MySQLdb.connect(self.host,"cattle","cattle","cattle")
-            print >> self.f,"\tmysql has been already installed"
+            print >> self.f,"\tmysql has already been installed"
             print "--install mysql is done"
         except:
             local_dir = os.path.join(os.getcwd(), fire_dir)
@@ -195,7 +200,6 @@ class RTelnet(object):
                 self.centos_pre_install_docker(fire_dir)
         else:
             print >> self.f,"--Chech Docker:"+'\n\t'+version
-            print "--OS version:"+'\t'+sysversion+"\n--Docker version:"+'\t'+version
 
     def install_rancher(self,version="rancher/server:v1.5.5"):
         id=self.send_cmd("docker ps \n")
@@ -221,7 +225,7 @@ class RTelnet(object):
 
     def send_cmd(self,cmd):
         self.tn.write(cmd)
-        time.sleep(1)
+        time.sleep(2)
         response=self.tn.read_very_eager()
 #        print "response:"+response
         return response

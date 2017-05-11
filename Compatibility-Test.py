@@ -78,6 +78,7 @@ class Compatibility_Test(object):
         if self.networking == "VXLAN":
             if self.template_admin_name not in all_env.keys():
                 print "---Add env-template"
+                print self.template_admin_name, self.engine, self.networking_type_admin
                 self.NewRancherServerTest.add_env_template(self.template_admin_name, self.engine, self.networking_type_admin)
                 print >> self.f,"\t" + self.template_admin_name
                 print "\t" + self.template_admin_name
@@ -110,15 +111,16 @@ class Compatibility_Test(object):
                 stack_id["GLB" + self.engine + self.networking]
             except:
                 self.NewRancherServerTest.add_stack(all_env[self.template_admin_name], "GLB" + self.engine + self.networking)
-            print >> self.f,"\t" + "GLB" + self.engine + self.networking + "\ton ENV:" + self.template_admin_name
+            print >> self.f, "\tENV:" + self.template_admin_name+ "\n\t\tGLB" + self.engine + self.networking
             print "\t" + "GLB" + self.engine + self.networking + "\ton ENV:" + self.template_admin_name
         stack_id = self.NewRancherServerTest.get_stack_all_id(all_env[self.template_name])
+        print >>self.f,"\tENV:" + self.template_name
         for i in self.service_name:
             try:
                 stack_id[i]
             except:
                 self.NewRancherServerTest.add_stack(all_env[self.template_name], i)
-            print >> self.f,"\t" + i + "\ton ENV:" + self.template_name
+            print >> self.f,"\t\t" + i
             print "\t" + i + "\ton ENV:" + self.template_name
 
         host_states = self.NewRancherServerTest.get_all_host_state(all_env[self.template_name])
@@ -128,19 +130,21 @@ class Compatibility_Test(object):
             admin_host_states = self.NewRancherServerTest.get_all_host_state(all_env[self.template_admin_name])
             if self.agents_inner_ip[-1] not in admin_host_states.keys():
                 self.NewRancherServerTest.add_host(all_env[self.template_admin_name], self.agents_outer_ip[-1])
-            print >> self.f,"\tadd host:" + self.agents_outer_ip[-1] + " to ENV:" + self.template_admin_name
+            print >>self.f,"\tENV:" + self.template_admin_name+"\n\t\tadd host:" + self.agents_outer_ip[-1]
             print "\tadd host:" + self.agents_outer_ip[-1] + " to ENV:" + self.template_admin_name
+            print >>self.f,"\tENV:" + self.template_name
             for n in range(0, len(self.agents_outer_ip) - 1):
                 ip = self.agents_inner_ip[n]
-                print >> self.f,"\tadd host:" + self.agents_outer_ip[n] + " to ENV:" + self.template_name
+                print >> self.f,"\t\tadd host:" + self.agents_outer_ip[n]
                 print "\tadd host:" + self.agents_outer_ip[n] + " to ENV:" + self.template_name
                 if ip in host_states.keys():
                     continue
                 self.NewRancherServerTest.add_host(all_env[self.template_name], self.agents_outer_ip[n])
         else:
+            print >>self.f,"\tENV:" + self.template_name
             for ip in self.agents_outer_ip:
                 index = self.agents_outer_ip.index(ip)
-                print >> self.f,"\tadd host:" + ip + " to ENV:" + self.template_name
+                print >> self.f,"\t\tadd host:" + ip
                 print "\tadd host:" + ip + " to ENV:" + self.template_name
                 if self.agents_inner_ip[index] in host_states.keys():
                     continue
@@ -161,6 +165,7 @@ class Compatibility_Test(object):
                 print "\t\t" + str(key) + " : " + vaule
             result = 1
             n = 0
+            print "\tstack:"
             while (result == 1):
                 host_data = self.NewRancherServerTest.get_stack_state_all(all_env[self.template_admin_name])
                 result = 0
@@ -170,11 +175,6 @@ class Compatibility_Test(object):
                 n = n + 1
                 if n == 20:
                     break
-            print >> self.f, "\tstack:"
-            print "\tstack:"
-            for key, value in host_data.items():
-                print >> self.f,"\t\t" + key + " : " + value
-                print "\t\t" + key + " : " + value
         print >> self.f,"---" + self.template_name + " Checked"
         print "---" + self.template_name + " Checked"
         hoststate = self.NewRancherServerTest.get_host_state(all_env[self.template_name])
@@ -183,7 +183,7 @@ class Compatibility_Test(object):
         for key, vaule in hoststate.items():
             print >> self.f,"\t\t" + str(key) + " : " + vaule
             print "\t\t" + str(key) + " : " + vaule
-
+        print "\tstack:"
         result = 1
         n = 0
         while (result == 1):
@@ -195,14 +195,10 @@ class Compatibility_Test(object):
             n = n + 1
             if n == 20:
                 break
-        print >> self.f,"\tstack:"
-        print "\tstack:"
-        for key, value in data.items():
-            print >> self.f,"\t\t" + key + " : " + value
-            print "\t\t" + key + " : " + value
+
 
     def container_ping_random(self):
-        print >> self.f,"---Check Containers Ping"
+        print >> self.f,"\n---Check Containers Ping"
         print "---Check Containers Ping"
         self.NewRancherServerTest.container_ping_random()
 
@@ -212,7 +208,7 @@ class Compatibility_Test(object):
         all_env = self.NewRancherServerTest.get_all_env()
         stack_id=self.NewRancherServerTest.get_stack_all_id(all_env[self.template_admin_name])["GLB" + self.engine + self.networking]
         if self.networking == "VXLAN":
-            self.NewRancherServerTest.glb_check(all_env[self.template_admin_name],stack_id,self.agents_outer_ip[-1])
+            self.NewRancherServerTest.glb_check(all_env[self.template_admin_name],stack_id,all_env[self.template_name])
 
     def lb_check(self):
         print >> self.f, "---Check LB Service"
@@ -232,19 +228,20 @@ if __name__ == "__main__":
     engine=['Cattle','Kubernetes']
     networking=['IPsec','VXLAN']
 
-    osversion = ['CentOS7.3']
-    engine = ['Kubernetes']
-    networking = ['IPsec']
+    engine = ['Cattle']
+    networking = ['VXLAN']
 
     for v in osversion:
         for e in engine:
+            if v == 'CentOS7.2' and e == 'Kubernetes':
+                break
             for nw in networking:
                 NewTest=Compatibility_Test(v,rancher_server,e,nw)
                 NewTest.setup_env()
                 NewTest.config_rancher_server()
                 NewTest.states_check()
                 NewTest.container_ping_random()
-                if nw=="VXLAN" and engine=="Cattle":
+                if nw=="VXLAN" and e=="Cattle":
                     NewTest.glb_check()
                 else:
                     NewTest.lb_check()
