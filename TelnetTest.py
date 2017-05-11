@@ -23,13 +23,23 @@ class RTelnet(object):
 
     def change_root(self):
         self.tn.write("su" + '\n')
-        time.sleep(.4)
+        time.sleep(1)
         data = self.tn.read_very_eager()
-        if re.search(r'(command not found)', data):
-            pass
-        else:
+        if re.search(r'(Password)', data):
             self.tn.write("XLuo+Agi198244" + '\n')
             time.sleep(1)
+
+    def clear_host(self):
+        self.change_root()
+        self.tn.write("docker rm -f $(docker ps -qa)"+'\n')
+        time.sleep(10)
+        self.tn.write("rm -rf /var/etcd/" + '\n')
+        self.tn.write("tac /proc/mounts | awk '{print $2}' | grep /var/lib/kubelet | xargs umount" + '\n')
+        self.tn.write("rm -rf /var/lib/kubelet/" + '\n')
+        self.tn.write("tac /proc/mounts | awk '{print $2}' | grep /var/lib/rancher | xargs umount" + '\n')
+        self.tn.write("rm - rf / var / lib / rancher /" + '\n')
+        self.tn.write("rm - rf / run / kubernetes /" + '\n')
+        self.tn.write("docker volume rm $(docker volume ls - q)" + '\n')
 
     def get_linux_version(self):
         self.tn.write("cat /proc/version"+'\n')
@@ -46,7 +56,7 @@ class RTelnet(object):
 
     def get_docker_version(self):
         self.tn.write('docker version' + '\n')
-        time.sleep(2)
+        time.sleep(3)
         data = self.tn.read_very_eager()
         print data
         if re.search(r'(command not found)',data):

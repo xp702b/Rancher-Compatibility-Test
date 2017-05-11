@@ -108,32 +108,69 @@ class RancherServer(object):
         time.sleep(2)
         self.dr.find_element_by_xpath("//section[@class='well r-mb0']/div[@class='ember-view']/div[@class='row form-group']"
                                       "/div/input").send_keys(name)
-        element="//section[@class='well r-mb0']/div[@class='row']/div/div/a[@title='"+engine_type+"']"
-        self.dr.find_element_by_xpath(element).click()
+        element = "//section[@class='well r-mb0']/div[@class='row']/div/div/a[@title='" + engine_type + "']"
+        engine_elements = self.dr.find_elements_by_xpath(element)
+        if len(engine_elements)>1:
+            if engine_type=="Kubernetes":
+                for i in engine_elements:
+                    if i.find_element_by_xpath("./div[2]").text=="in K8s":
+                        i.click()
+            else:
+                for i in engine_elements:
+                    if i.find_element_by_xpath("./div[2]").text == "in Library":
+                        i.click()
+        else:
+            self.dr.find_element_by_xpath(element).click()
         time.sleep(1)
         js = "var q=document.documentElement.scrollTop=500"
         self.dr.execute_script(js)
         element=self.dr.find_element_by_xpath('//section/h4[text()="Networking"]/..')
+        num=0
         try:
-            for i in range(1,len(element.find_elements_by_xpath("//div[@class='ember-view catalog-box']"))+1):
-                dis_expr="//section/div/div["+str(i)+"]/div[@class='footer']/button[2]"
-                element.find_element_by_xpath(dis_expr).click()
+            active_elements=self.dr.find_elements_by_xpath('//section/h4[text()="Networking"]/../div/div[@class="ember-view catalog-box"]')
+            num = len(active_elements)
         except:
             pass
-        print "here1"
-        expr='//div[@class="itemwrap"]/h5[text()="'+type+'"]/../../div[@class="footer"]/button[@class="btn btn-primary"]'
-        print expr
-        element.find_element_by_xpath(expr).click()
-        time.sleep(1)
-        js = "var q=document.documentElement.scrollTop=500"
-        self.dr.execute_script(js)
-        time.sleep(1)
-        print "here2"
-        self.dr.find_element_by_xpath(
-            "//body[@class='no-touch ember-application theme-ui-light']/div[@class='ember-view']")
-        self.dr.find_element_by_xpath("//div[@class='ember-view lacsso modal-overlay modal-open']/div"
-                                      "/div/div[@class='footer-actions']/div/button[@class='btn btn-primary']").click()
-        time.sleep(1)
+        if num >0:
+            for i in active_elements:
+#                print i.find_element_by_xpath('./div[@class="itemwrap"]/h5').text,i.find_element_by_xpath('./div[@class="itemwrap"]/span/span').text
+                if i.find_element_by_xpath('./div[@class="itemwrap"]/h5').text == type:
+                    if engine_type == "Kubernetes":
+                        if i.find_element_by_xpath('./div[@class="itemwrap"]/span/span').text != "K8s":
+                            i.find_element_by_xpath("//div[@class='footer']/button[2]").click()
+                    else:
+                        if i.find_element_by_xpath('./div[@class="itemwrap"]/span/span').text != "Library":
+                            i.find_element_by_xpath("./div[@class='footer']/button[2]").click()
+                else:
+                    i.find_element_by_xpath("./div[@class='footer']/button[2]").click()
+                time.sleep(1)
+        num=0
+        try:
+            inactive_elements=self.dr.find_elements_by_xpath('//section/h4[text()="Networking"]/../div/div[@class="ember-view catalog-box inactive"]')
+            num = len(inactive_elements)
+        except:
+            pass
+        if num>0:
+            for i in inactive_elements:
+                if_click=0
+#                print i.find_element_by_xpath('./div[@class="itemwrap"]/h5').text,i.find_element_by_xpath('./div[@class="itemwrap"]/span/span').text
+                if i.find_element_by_xpath('./div[@class="itemwrap"]/h5').text == type:
+                    if engine_type == "Kubernetes" and i.find_element_by_xpath('./div[@class="itemwrap"]/span/span').text == "K8s":
+                        i.find_element_by_xpath("./div[@class='footer']/button").click()
+                        if_click=1
+                    if engine_type != "Kubernetes" and i.find_element_by_xpath('./div[@class="itemwrap"]/span/span').text == "Library":
+                        i.find_element_by_xpath("./div[@class='footer']/button").click()
+                        if_click=1
+                    if if_click>0:
+                        time.sleep(1)
+                        js = "var q=document.documentElement.scrollTop=500"
+                        self.dr.execute_script(js)
+                        time.sleep(1)
+                        self.dr.find_element_by_xpath(
+                            "//body[@class='no-touch ember-application theme-ui-light']/div[@class='ember-view']")
+                        self.dr.find_element_by_xpath("//div[@class='ember-view lacsso modal-overlay modal-open']/div"
+                                                      "/div/div[@class='footer-actions']/div/button[@class='btn btn-primary']").click()
+                        time.sleep(1)
         self.dr.find_element_by_xpath("//main[@class='clearfix']/div[@class='ember-view']/div[@class='ember-view footer-actions']"
                                       "/button[@class='btn btn-primary']").click()
         time.sleep(5)
@@ -391,14 +428,15 @@ class RancherServer(object):
 
     def delete_all_host(self, env_id):
         while True:
+            url = self.rancherserver_ip + "/env/" + env_id + "/infra/hosts"
+            self.dr.get(url)
+            self.dr.implicitly_wait(25)
+            self.dr.find_element_by_class_name("clearfix")
+            time.sleep(1)
+            data=self.dr.page_source
+            if re.search(r'(No hosts)', data) is not None:
+                break
             try:
-                url = self.rancherserver_ip + "/env/" + env_id + "/infra/hosts"
-                self.dr.get(url)
-                self.dr.implicitly_wait(25)
-                self.dr.find_element_by_class_name("clearfix")
-                time.sleep(1)
-                if re.search(r'(text-center text-muted)', self.dr.page_source) or re.search(r'(No hosts)', self.dr.page_source):
-                    break
                 text_repr = "//section[@class='ember-view pods clearfix']/div[1]/div[1]/div[3]/div[1]/div[1]"
                 print >> self.f,"\tdelete:" + self.dr.find_element_by_xpath(text_repr).text
                 print "\tdelete:" + self.dr.find_element_by_xpath(text_repr).text
@@ -420,8 +458,6 @@ class RancherServer(object):
                 time.sleep(5)
             except:
                 pass
-
-
 
     def get_host_state(self,env_id):
 #        print "------get " + Host_ip + " state------"
@@ -492,27 +528,46 @@ class RancherServer(object):
         self.dr.implicitly_wait(25)
         self.dr.find_element_by_class_name("clearfix")
         time.sleep(1)
-        try:
-            text_name=self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[1]/input").get_attribute('value')
-            text_url=self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[3]/input").get_attribute('value')
-            text_branch=self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[5]/input").get_attribute('value')
-            print >> self.f,"\t"+text_name+"\t"+text_url+"\t"+text_branch
-            print "\t"+text_name+"\t"+text_url+"\t"+text_branch
-        except:
-            text_name=" "
-        if (text_name != "myvxlan"):
+        need_myvxlan="True"
+        need_k8s="True"
+        elements=self.dr.find_elements_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr")
+        num=len(elements)
+        if num>1:
+            for n in range(2,num+1):
+                expr="//main[@class='clearfix']/section[3]/div/table/tr["+str(n)+"]/"
+                text_name=self.dr.find_element_by_xpath(expr+"td[1]/input").get_attribute('value')
+                text_url=self.dr.find_element_by_xpath(expr+"td[3]/input").get_attribute('value')
+                text_branch=self.dr.find_element_by_xpath(expr+"td[5]/input").get_attribute('value')
+                print "\t" + text_name + "\t" + text_url + "\t" + text_branch
+                if text_name == "myvxlan":
+                    need_myvxlan="False"
+                if text_name == "k8s":
+                    need_k8s="False"
+        if (need_myvxlan == "True"):
             self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/button").click()
             time.sleep(1)
-            self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[1]/input").send_keys("myvxlan")
-            self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[3]/input").send_keys(
+            expr = "//main[@class='clearfix']/section[3]/div/table/tr[" + str(num+1) + "]/"
+            self.dr.find_element_by_xpath(expr+"td[1]/input").send_keys("myvxlan")
+            self.dr.find_element_by_xpath(expr+"td[3]/input").send_keys(
             "https://github.com/leodotcloud/rancher-catalog.git")
-            self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[5]/input").send_keys(Keys.CONTROL + "a")
-            self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/table/tr[2]/td[5]/input").send_keys("hnatest2")
-            self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/div[@class='ember-view footer-actions']/button").click()
-            time.sleep(5)
+            self.dr.find_element_by_xpath(expr+"td[5]/input").send_keys(Keys.CONTROL + "a")
+            self.dr.find_element_by_xpath(expr+"td[5]/input").send_keys("hnatest2")
             print >> self.f,"\t"+"myvxlan\t"+"https://github.com/leodotcloud/rancher-catalog.git\t"+"hnatest2"
             print "\t"+"myvxlan\t"+"https://github.com/leodotcloud/rancher-catalog.git\t"+"hnatest2"
-
+        if (need_k8s=="True"):
+            self.dr.find_element_by_xpath("//main[@class='clearfix']/section[3]/div/button").click()
+            time.sleep(1)
+            expr = "//main[@class='clearfix']/section[3]/div/table/tr[" + str(num + 2) + "]/"
+            self.dr.find_element_by_xpath(expr + "td[1]/input").send_keys("k8s")
+            self.dr.find_element_by_xpath(expr + "td[3]/input").send_keys(
+                "https://github.com/niusmallnan/rancher-catalog.git")
+            self.dr.find_element_by_xpath(expr + "td[5]/input").send_keys(Keys.CONTROL + "a")
+            self.dr.find_element_by_xpath(expr + "td[5]/input").send_keys("k8s-cn")
+            print >>self.f,"\t"+"k8s\t"+"https://github.com/niusmallnan/rancher-catalog.git\t"+"k8s-cn"
+        if (need_myvxlan == "True") or (need_k8s=="True"):
+            self.dr.find_element_by_xpath(
+                "//main[@class='clearfix']/section[3]/div/div[@class='ember-view footer-actions']/button").click()
+            time.sleep(5)
 
     def container_ping_random(self):
         num = random.randint(0, len(self.agents_outer_ip) - 2)
@@ -572,7 +627,7 @@ class RancherServer(object):
     def container_ping(self,container_id1,container_id2):
         pass
 
-    def glb_check(self,glb_env_id,glb_stack_id,host_ip):
+    def glb_check(self,glb_env_id,glb_stack_id):
         all_stack_id=self.get_stack_all_id(glb_env_id)
         url = self.rancherserver_ip + "/env/" + str(glb_env_id) + "/apps/stacks/"+str(glb_stack_id)+"?which=all"
         self.dr.get(url)
@@ -581,6 +636,10 @@ class RancherServer(object):
         time.sleep(2)
         actionItem = self.dr.find_element_by_xpath("//table[@class='grid fixed sized']/tbody/tr/td[@class='force-wrap service-detail']/span/a")
         url=actionItem.get_attribute("href")
+        agent_inner_ip= re.search(r'(\d*\.\d*\.\d*\.\d*)',url).group(1)
+#        print agent_inner_ip
+        agent_outer_ip=self.agents_outer_ip[self.agents_inner_ip.index(agent_inner_ip)]
+#        print agent_outer_ip
         from TelnetTest import RTelnet
         server_ip=re.search(r'(\d*\.\d*\.\d*\.\d*)',self.rancherserver_ip).group(1)
         dst_telnet = RTelnet(server_ip,self.f)
@@ -597,7 +656,7 @@ class RancherServer(object):
             print "\tError"
         dst_telnet.close()
 
-        self.glb_haproxy_config_check(glb_env_id,host_ip)
+        self.glb_haproxy_config_check(glb_env_id,agent_outer_ip)
 
     def glb_haproxy_config_check(self,env_id,host_ip):
         print >> self.f,"----GLB haproxy config check on host:"+host_ip
@@ -615,8 +674,12 @@ class RancherServer(object):
             except:
                 pass
         config_data =dst_telnet.get_haproxy_config(container_id)
-        print >> self.f,config_data
-        print config_data
+        data=config_data.split('\n')
+        data.pop()
+        num=len(self.get_host_state(env_id))
+        for i in range(1,num+1):
+            print data[0-i]
+        print >> self.f,data
         dst_telnet.close()
 
 if __name__ == "__main__":
